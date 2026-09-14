@@ -97,6 +97,21 @@ bFUSEnabled.x64=12D28C
 
 Press **Enter** once after the last line so the file ends with a blank line.
 
+## Where these values come from
+
+The offsets and code names in Step 3 are not invented by this guide. They come from a community reverse-engineered configuration for the exact `termsrv.dll` build `10.0.26100.9444`.
+
+- The original values were posted by `glovagnini`, who credited `Heng Shixin` from a Telegram group: [original 9444 config](https://github.com/stascorp/rdpwrap/issues/4449#issuecomment-5594896021)
+- The variant used here was posted by `JeeperS1987`; it intentionally omits `SLInitHook.x64` and `SLInitOffset.x64`, because those two lines were reported to crash `TermService` on this build: [working 9444 config](https://github.com/stascorp/rdpwrap/issues/4449#issuecomment-5596861003)
+
+### What the numbers mean
+
+- `LocalOnlyOffset.x64=99801`, `SingleUserOffset.x64=A637B`, and `DefPolicyOffset.x64=A351D` are hexadecimal offsets relative to the base address of the loaded 64-bit `termsrv.dll` module.
+- RDP Wrapper adds each offset to the module’s base address and writes the corresponding patch bytes at that location.
+- Names such as `jmpshort`, `mov_eax_1_nop_2`, and `CDefPolicy_Query_r9d_rdi_jmp` are symbolic labels for byte patterns already defined in the global `[PatchCodes]` section of `rdpwrap.ini`.
+- The `[10.0.26100.9444-SLInit]` block contains offsets to individual fields inside the Terminal Services licensing/session-policy structure that RDP Wrapper’s `New_CSLQuery_Initialize` hook fills in.
+
+Because Microsoft changes `termsrv.dll` with each Windows update, these offsets are build-specific. They are valid only for `termsrv.dll 10.0.26100.9444`, which is why PR 4062 does not help here.
 ## Step 4 — Disable “single session per user”
 
 If you want concurrent sessions for the same user, set both of these registry values to `0`:

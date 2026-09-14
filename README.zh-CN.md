@@ -97,6 +97,21 @@ bFUSEnabled.x64=12D28C
 
 最后一行后请按一次 **Enter**，确保文件以空行结束。
 
+## 这些数值的来源
+
+第 3 步中的偏移量和代码名称并非随意编写，而是来自针对 `termsrv.dll 10.0.26100.9444` 这个精确版本的社区逆向工程配置。
+
+- 原始数值由 `glovagnini` 发布，并注明来自 Telegram 群组的 `Heng Shixin`：[原始 9444 配置](https://github.com/stascorp/rdpwrap/issues/4449#issuecomment-5594896021)
+- 本指南采用的是 `JeeperS1987` 发布的版本；该版本刻意省略 `SLInitHook.x64` 和 `SLInitOffset.x64`，因为社区反馈这两行会导致此版本的 `TermService` 崩溃：[可用的 9444 配置](https://github.com/stascorp/rdpwrap/issues/4449#issuecomment-5596861003)
+
+### 数值的含义
+
+- `LocalOnlyOffset.x64=99801`、`SingleUserOffset.x64=A637B`、`DefPolicyOffset.x64=A351D` 是相对于已加载的 64 位 `termsrv.dll` 模块基址的十六进制偏移量。
+- RDP Wrapper 会把每个偏移量加上模块基址，然后在对应位置写入补丁字节。
+- `jmpshort`、`mov_eax_1_nop_2`、`CDefPolicy_Query_r9d_rdi_jmp` 这类名称不是原始字节，而是 `rdpwrap.ini` 全局 `[PatchCodes]` 节中已经定义的字节模式的符号名。
+- `[10.0.26100.9444-SLInit]` 中的数值是远程桌面服务授权 / 会话策略结构中各字段的偏移量，RDP Wrapper 的 `New_CSLQuery_Initialize` 钩子会填充这些字段。
+
+由于 Microsoft 每次更新都会修改 `termsrv.dll`，这些偏移量是版本相关的。它们只适用于 `termsrv.dll 10.0.26100.9444`，这也是 PR 4062 无法解决此问题的原因。
 ## 第 4 步 — 关闭“每用户单会话”
 
 如果你希望同一用户可以同时开多个会话，请把以下两个注册表值都设为 `0`：
