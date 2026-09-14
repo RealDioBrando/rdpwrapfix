@@ -164,6 +164,15 @@ Restart-Service -Name TermService -Force
 
 To restore the single-session policy, set both `fSingleSessionPerUser` values back to `1`.
 
+## Related tools
+
+PR 4062 also references a separate tool that can generate these values automatically:
+
+- [`llccd/RDPWrapOffsetFinder`](https://github.com/llccd/RDPWrapOffsetFinder) — automatically finds RDP Wrapper offsets and generates an `rdpwrap.ini` section for a given `termsrv.dll`.
+- [`sergiye/rdpWrapper`](https://github.com/sergiye/rdpWrapper) — a separate RDP Wrapper implementation that integrates `RDPWrapOffsetFinder` and `TermWrap`, so it can auto-generate offsets for unsupported Windows builds.
+
+These tools are useful when a new Windows update changes `termsrv.dll` and no community offsets have been published yet.
+
 ## References
 
 - [Issue 4449: 10.0.26100.9444 not supported](https://github.com/stascorp/rdpwrap/issues/4449)

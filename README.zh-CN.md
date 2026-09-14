@@ -164,6 +164,15 @@ Restart-Service -Name TermService -Force
 
 如需恢复单会话策略，请把两个 `fSingleSessionPerUser` 值改回 `1`。
 
+## 相关工具
+
+PR 4062 还引用了一个可以自动生成这些数值的独立工具：
+
+- [`llccd/RDPWrapOffsetFinder`](https://github.com/llccd/RDPWrapOffsetFinder) — 自动查找 RDP Wrapper 偏移量，并为指定的 `termsrv.dll` 生成 `rdpwrap.ini` 配置节。
+- [`sergiye/rdpWrapper`](https://github.com/sergiye/rdpWrapper) — 另一个 RDP Wrapper 实现，集成了 `RDPWrapOffsetFinder` 和 `TermWrap`，可以为暂不支持的 Windows 版本自动生成偏移量。
+
+当 Windows 更新修改了 `termsrv.dll`，而社区还没有发布新的偏移量时，这些工具会很有用。
+
 ## 参考
 
 - [Issue 4449: 10.0.26100.9444 not supported](https://github.com/stascorp/rdpwrap/issues/4449)
