@@ -1,8 +1,8 @@
-# RDP Wrapper fix for Windows 11 build 26100.9444
+# RDP Wrapper fixes for Windows 11 builds 26100.9444 and 26100.9549
 
 [English](README.md) | [中文](README.zh-CN.md)
 
-This guide explains why RDP Wrapper may stop working on Windows 11 after a recent update, and how to fix it by adding the missing `10.0.26100.9444` configuration to `rdpwrap.ini`.
+This guide explains why RDP Wrapper may stop working after a Windows 11 update, and how to fix it by adding the missing `termsrv.dll` build-specific sections to `rdpwrap.ini`.
 
 ## Problem
 
@@ -10,25 +10,27 @@ RDP Wrapper may report **Not supported**, or the service may start and listen on
 
 ## Cause
 
-Your Windows build may report an OS version such as `10.0.26200`, while the actual `termsrv.dll` internal version is:
+RDP Wrapper does **not** use the Windows OS build number. It looks up the **numeric private part** of `termsrv.dll`.
 
-```text
-10.0.26100.9444
-```
+For example:
 
-RDP Wrapper looks up the numeric private part of `termsrv.dll`, so it searches for:
+- Windows OS build may report `10.0.26200`
+- `termsrv.dll` private build may be `10.0.26100.9549`
+- RDP Wrapper therefore searches for:
 
 ```ini
-[10.0.26100.9444]
+[10.0.26100.9549]
 ```
 
 If your installed `rdpwrap.ini` does not contain that section, the compatibility patches are not applied.
 
-> PR [#4062](https://github.com/stascorp/rdpwrap/pull/4062) does **not** fix this build. It only adds support up to `10.0.26100.7623`.
+> On build `10.0.26100.9549`, the displayed `FileVersion` string may still say `10.0.26100.8875`. The numeric `FilePrivatePart` is the value that matters.
+
+> PR [#4062](https://github.com/stascorp/rdpwrap/pull/4062) does **not** fix these builds. It only adds support up to `10.0.26100.7623`.
 
 ## Requirements
 
-- Windows 11 with `termsrv.dll` version `10.0.26100.9444`
+- Windows 11 with `termsrv.dll` private build `10.0.26100.9549` or `10.0.26100.9444`
 - RDP Wrapper installed in `C:\Program Files\RDP Wrapper`
 - Administrator privileges
 - A backup of your current `rdpwrap.ini`
@@ -37,7 +39,8 @@ If your installed `rdpwrap.ini` does not contain that section, the compatibility
 
 - Do **not** replace the whole INI with a minimal file that only contains the build-specific sections.
 - Keep the existing global `[PatchCodes]` section intact.
-- Do **not** add `SLInitHook.x64` or `SLInitOffset.x64` for this build. Community reports indicate those two lines can make `TermService` crash.
+- For build `9549`, use the full configuration below, including `SLInitHook.x64`.
+- For build `9444`, omit `SLInitHook.x64` and `SLInitOffset.x64`; community reports indicate those two lines can make `TermService` crash on that older build.
 - Make sure the INI file ends with a blank line. An unterminated last line can be silently ignored.
 
 ## Step 1 — Check the installed version
@@ -46,23 +49,32 @@ Run this in PowerShell:
 
 ```powershell
 $v = (Get-Item "C:\Windows\System32\termsrv.dll").VersionInfo
-"$($v.FileMajorPart).$($v.FileMinorPart).$($v.FileBuildPart).$($v.FilePrivatePart)"
+"{0}.{1}.{2}.{3}" -f $v.FileMajorPart, $v.FileMinorPart, $v.FileBuildPart, $v.FilePrivatePart
 ```
 
-You should see:
+For the current build you should see:
 
 ```text
-10.0.26100.9444
+10.0.26100.9549
 ```
+
+To check whether the matching section already exists:
+
+```powershell
+Select-String -LiteralPath "C:\Program Files\RDP Wrapper\rdpwrap.ini" `
+              -Pattern '^\[10\.0\.26100\.9549\]$'
+```
+
+If this returns no output, the section is missing.
 
 ## Step 2 — Back up the current INI
 
 ```powershell
 Copy-Item "C:\Program Files\RDP Wrapper\rdpwrap.ini" `
-          "C:\Program Files\RDP Wrapper\rdpwrap.ini.bak-before-9444"
+          "C:\Program Files\RDP Wrapper\rdpwrap.ini.bak-before-9549"
 ```
 
-## Step 3 — Add the missing sections
+## Step 3 — Add the missing sections for 9549
 
 Open this file as Administrator:
 
@@ -73,45 +85,54 @@ C:\Program Files\RDP Wrapper\rdpwrap.ini
 Add the following two blocks to the end of the file:
 
 ```ini
-[10.0.26100.9444]
-LocalOnlyPatch.x64=1
-LocalOnlyOffset.x64=99801
-LocalOnlyCode.x64=jmpshort
+[10.0.26100.9549]
 SingleUserPatch.x64=1
-SingleUserOffset.x64=A637B
+SingleUserOffset.x64=A96FB
 SingleUserCode.x64=mov_eax_1_nop_2
 DefPolicyPatch.x64=1
-DefPolicyOffset.x64=A351D
+DefPolicyOffset.x64=A689D
 DefPolicyCode.x64=CDefPolicy_Query_r9d_rdi_jmp
+LocalOnlyPatch.x64=1
+LocalOnlyOffset.x64=9CB81
+LocalOnlyCode.x64=jmpshort
+SLInitHook.x64=1
+SLInitOffset.x64=BD8B8
+SLInitFunc.x64=New_CSLQuery_Initialize
 
-[10.0.26100.9444-SLInit]
-bInitialized.x64=12D260
-bServerSku.x64=12D264
-lMaxUserSessions.x64=12D268
-bAppServerAllowed.x64=12D270
-bRemoteConnAllowed.x64=12D27C
-bMultimonAllowed.x64=12D280
-ulMaxDebugSessions.x64=12D288
-bFUSEnabled.x64=12D28C
+[10.0.26100.9549-SLInit]
+bServerSku.x64=131314
+bRemoteConnAllowed.x64=13132C
+bFUSEnabled.x64=13133C
+bAppServerAllowed.x64=131320
+bMultimonAllowed.x64=131330
+lMaxUserSessions.x64=131318
+ulMaxDebugSessions.x64=131338
+bInitialized.x64=131310
 ```
 
 Press **Enter** once after the last line so the file ends with a blank line.
 
 ## Where these values come from
 
-The offsets and code names in Step 3 are not invented by this guide. They come from a community reverse-engineered configuration for the exact `termsrv.dll` build `10.0.26100.9444`.
+The offsets and code names in Step 3 are not invented by this guide. They come from a community reverse-engineered configuration for the exact `termsrv.dll` build `10.0.26100.9549`.
 
-- The original values were posted by `glovagnini`, who credited `Heng Shixin` from a Telegram group: [original 9444 config](https://github.com/stascorp/rdpwrap/issues/4449#issuecomment-5594896021)
-- The variant used here was posted by `JeeperS1987`; it intentionally omits `SLInitHook.x64` and `SLInitOffset.x64`, because those two lines were reported to crash `TermService` on this build: [working 9444 config](https://github.com/stascorp/rdpwrap/issues/4449#issuecomment-5596861003)
+- The configuration was posted by `AlexHDman` in [issue #4485](https://github.com/stascorp/rdpwrap/issues/4485).
+- The same values were independently generated by [`llccd/RDPWrapOffsetFinder`](https://github.com/llccd/RDPWrapOffsetFinder) against a `termsrv.dll` file with SHA-256:
+
+```text
+E40261E4EE89F4DC9B4A3EA23B53631AAC2868D533A3930B92A9C821A2BF9456
+```
 
 ### What the numbers mean
 
-- `LocalOnlyOffset.x64=99801`, `SingleUserOffset.x64=A637B`, and `DefPolicyOffset.x64=A351D` are hexadecimal offsets relative to the base address of the loaded 64-bit `termsrv.dll` module.
+- `SingleUserOffset.x64=A96FB`, `DefPolicyOffset.x64=A689D`, and `LocalOnlyOffset.x64=9CB81` are hexadecimal offsets relative to the base address of the loaded 64-bit `termsrv.dll` module.
 - RDP Wrapper adds each offset to the module’s base address and writes the corresponding patch bytes at that location.
 - Names such as `jmpshort`, `mov_eax_1_nop_2`, and `CDefPolicy_Query_r9d_rdi_jmp` are symbolic labels for byte patterns already defined in the global `[PatchCodes]` section of `rdpwrap.ini`.
-- The `[10.0.26100.9444-SLInit]` block contains offsets to individual fields inside the Terminal Services licensing/session-policy structure that RDP Wrapper’s `New_CSLQuery_Initialize` hook fills in.
+- `SLInitOffset.x64=BD8B8` is the entry point of the Terminal Services licensing initialization function that RDP Wrapper hooks.
+- The `[10.0.26100.9549-SLInit]` block contains offsets to individual fields inside the Terminal Services licensing/session-policy structure that RDP Wrapper’s `New_CSLQuery_Initialize` hook fills in.
 
-Because Microsoft changes `termsrv.dll` with each Windows update, these offsets are build-specific. They are valid only for `termsrv.dll 10.0.26100.9444`, which is why PR 4062 does not help here.
+Because Microsoft changes `termsrv.dll` with each Windows update, these offsets are build-specific. They are valid only for `termsrv.dll 10.0.26100.9549`, which is why PR 4062 does not help here.
+
 ## Step 4 — Disable “single session per user”
 
 If you want concurrent sessions for the same user, set both of these registry values to `0`:
@@ -156,7 +177,7 @@ This will disconnect any active RDP sessions.
 To undo the INI change:
 
 ```powershell
-Copy-Item "C:\Program Files\RDP Wrapper\rdpwrap.ini.bak-before-9444" `
+Copy-Item "C:\Program Files\RDP Wrapper\rdpwrap.ini.bak-before-9549" `
           "C:\Program Files\RDP Wrapper\rdpwrap.ini" -Force
 
 Restart-Service -Name TermService -Force
@@ -164,20 +185,46 @@ Restart-Service -Name TermService -Force
 
 To restore the single-session policy, set both `fSingleSessionPerUser` values back to `1`.
 
+## Older build: 10.0.26100.9444
+
+If your `termsrv.dll` private build is still `10.0.26100.9444`, use these sections instead:
+
+```ini
+[10.0.26100.9444]
+LocalOnlyPatch.x64=1
+LocalOnlyOffset.x64=99801
+LocalOnlyCode.x64=jmpshort
+SingleUserPatch.x64=1
+SingleUserOffset.x64=A637B
+SingleUserCode.x64=mov_eax_1_nop_2
+DefPolicyPatch.x64=1
+DefPolicyOffset.x64=A351D
+DefPolicyCode.x64=CDefPolicy_Query_r9d_rdi_jmp
+
+[10.0.26100.9444-SLInit]
+bInitialized.x64=12D260
+bServerSku.x64=12D264
+lMaxUserSessions.x64=12D268
+bAppServerAllowed.x64=12D270
+bRemoteConnAllowed.x64=12D27C
+bMultimonAllowed.x64=12D280
+ulMaxDebugSessions.x64=12D288
+bFUSEnabled.x64=12D28C
+```
+
+For this older build, do **not** add `SLInitHook.x64` or `SLInitOffset.x64`.
+
 ## Related tools
 
-PR 4062 also references a separate tool that can generate these values automatically:
+When a new Windows update changes `termsrv.dll` and no community offsets have been published yet, these tools can generate a new INI section automatically:
 
 - [`llccd/RDPWrapOffsetFinder`](https://github.com/llccd/RDPWrapOffsetFinder) — automatically finds RDP Wrapper offsets and generates an `rdpwrap.ini` section for a given `termsrv.dll`.
 - [`sergiye/rdpWrapper`](https://github.com/sergiye/rdpWrapper) — a separate RDP Wrapper implementation that integrates `RDPWrapOffsetFinder` and `TermWrap`, so it can auto-generate offsets for unsupported Windows builds.
 
-These tools are useful when a new Windows update changes `termsrv.dll` and no community offsets have been published yet.
-
 ## References
 
+- [Issue 4485: 10.0.26100.9549 not supported](https://github.com/stascorp/rdpwrap/issues/4485)
 - [Issue 4449: 10.0.26100.9444 not supported](https://github.com/stascorp/rdpwrap/issues/4449)
 - [Issue 4473: 10.0.26100.9444 despite Fully Supported](https://github.com/stascorp/rdpwrap/issues/4473)
 - [sebaxakerhtc/rdpwrap.ini](https://github.com/sebaxakerhtc/rdpwrap.ini)
 - [PR 4062](https://github.com/stascorp/rdpwrap/pull/4062)
-
-
