@@ -40,6 +40,7 @@ RDP Wrapper **不是**按 Windows 系统版本号查找配置，而是按 `terms
 - 不要把整个 INI 替换成只包含版本配置的极简文件。
 - 必须保留原有的全局 `[PatchCodes]` 节。
 - 对于 `9549` 版本，请使用下面的完整配置，包括 `SLInitHook.x64`。
+- 如果应用 `9549` 配置后 `TermService` 崩溃，请只删除 `SLInitHook.x64`、`SLInitOffset.x64` 和 `SLInitFunc.x64` 这三行，然后重启服务。
 - 对于 `9444` 版本，请不要添加 `SLInitHook.x64` 和 `SLInitOffset.x64`；社区反馈显示这两行可能导致该旧版本的 `TermService` 崩溃。
 - 确保 INI 文件末尾有空行。最后一行如果没有换行符，可能会被静默忽略。
 

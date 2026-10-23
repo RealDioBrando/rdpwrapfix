@@ -40,6 +40,7 @@ If your installed `rdpwrap.ini` does not contain that section, the compatibility
 - Do **not** replace the whole INI with a minimal file that only contains the build-specific sections.
 - Keep the existing global `[PatchCodes]` section intact.
 - For build `9549`, use the full configuration below, including `SLInitHook.x64`.
+- If `TermService` crashes after applying the `9549` configuration, remove only the three `SLInitHook.x64`, `SLInitOffset.x64`, and `SLInitFunc.x64` lines, then restart the service.
 - For build `9444`, omit `SLInitHook.x64` and `SLInitOffset.x64`; community reports indicate those two lines can make `TermService` crash on that older build.
 - Make sure the INI file ends with a blank line. An unterminated last line can be silently ignored.
 
